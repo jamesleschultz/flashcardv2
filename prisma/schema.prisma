@@ -1,0 +1,50 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Stores user info, linked to Firebase Auth UID
+model Profile {
+  id        String   @id @db.VarChar(255) // Firebase UID (Primary Key)
+  email     String?  @unique
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  decks     Deck[]   // Relation to Decks
+  @@map("profiles")
+}
+
+model Deck {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.VarChar(255) // Foreign Key to Profile.id (Firebase UID)
+  name        String
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  user        Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flashcards  Flashcard[]
+  @@index([userId])
+  @@map("decks")
+}
+
+model Flashcard {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deckId         String    @map("deck_id") @db.Uuid
+  userId         String    @map("user_id") @db.VarChar(255) // Foreign Key to Profile.id
+  question       String
+  answer         String
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  easeFactor     Float?    @map("ease_factor") @default(2.5)
+  interval       Int?      @map("interval") @default(0)
+  nextReviewDate DateTime? @map("next_review_date") @db.Timestamptz
+  deck           Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  @@index([deckId])
+  @@index([userId])
+  @@index([nextReviewDate])
+  @@map("flashcards")
+}
