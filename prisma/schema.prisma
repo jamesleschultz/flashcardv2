@@ -14,15 +14,16 @@ datasource db {
 // --- User Model ---
 // Stores user information, linked to Firebase Auth via id (Firebase UID)
 model User {
-  id          String    @id // Firebase UID - THIS IS THE CRITICAL LINK
-  email       String?   @unique // User's email from Firebase (can be optional depending on providers)
-  name        String?   // User's display name from Firebase
-  avatarUrl   String?   @map("avatar_url") // User's profile picture URL from Firebase
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id        String   @id // Firebase UID - THIS IS THE CRITICAL LINK
+  email     String?  @unique // User's email from Firebase (can be optional depending on providers)
+  name      String? // User's display name from Firebase
+  avatarUrl String?  @map("avatar_url") // User's profile picture URL from Firebase
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relationships
-  decks Deck[] // A user can have multiple decks
+  decks     Deck[] // A user can have multiple decks
+  Flashcard Flashcard[]
 
   @@map("users") // Maps this model to the 'users' table in Postgres
 }
@@ -30,18 +31,18 @@ model User {
 // --- Deck Model ---
 // Represents a collection of flashcards
 model Deck {
-  id          String    @id @default(cuid()) // Unique ID for the deck
-  name        String    // Name of the deck (e.g., "JavaScript Basics", "React Hooks")
-  description String?   // Optional description for the deck
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id          String   @id @default(cuid()) // Unique ID for the deck
+  name        String // Name of the deck (e.g., "JavaScript Basics", "React Hooks")
+  description String? // Optional description for the deck
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relationships
   userId String @map("user_id") // Foreign key linking to the User model
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade) // Relation field
 
   cards Flashcard[] // A deck contains multiple flashcards
-  tags  Tag[]       // A deck can have multiple tags (Many-to-Many)
+  tags  Tag[] // A deck can have multiple tags (Many-to-Many)
 
   @@map("decks")
 }
@@ -57,17 +58,20 @@ model Flashcard {
 
   // Spaced Repetition Fields (for SM2 or similar algorithms)
   easinessFactor Float    @default(2.5) @map("easiness_factor") // How easy the card is (e.g., SM2 EF)
-  interval       Int      @default(0)   // Days until next review
-  repetitions    Int      @default(0)   // Number of times reviewed successfully in a row
+  interval       Int      @default(0) // Days until next review
+  repetitions    Int      @default(0) // Number of times reviewed successfully in a row
   nextReviewDate DateTime @default(now()) @map("next_review_date") // When the card is due for review
 
   // AI Generation Info (Optional but useful)
   sourceType SourceType? @map("source_type") // How was this card created?
-  sourceRef  String?     @map("source_ref")  // Optional reference to the source (e.g., PDF page, text chunk ID)
+  sourceRef  String?     @map("source_ref") // Optional reference to the source (e.g., PDF page, text chunk ID)
 
   // Relationships
   deckId String @map("deck_id") // Foreign key linking to the Deck model
   deck   Deck   @relation(fields: [deckId], references: [id], onDelete: Cascade) // Relation field
+
+  userId String @map("user_id") // Foreign key linking to the User model
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade) // Relation field
 
   @@map("flashcards")
 }

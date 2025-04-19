@@ -2,9 +2,7 @@
 
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/config/firebase-config';
-import Login from '@/app/(auth)/login/page'; // Assuming Login handles its own logic or redirects
-import { signOut } from 'firebase/auth';
-import { useRouter } from 'next/navigation'; // Keep if needed for other navigation
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -13,31 +11,31 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose // Import DialogClose
+  DialogClose 
 } from "@/components/ui/dialog"
 import FormComponent from '@/components/formcomponent';
-import DeckList from '@/components/DeckList';      // Adjust path if necessary
-import { useState, useEffect, useCallback } from 'react'; // Import hooks
-import axios from 'axios';                         // Import axios
-import { Button } from '@/components/ui/button'; // Import Button for DialogTrigger
+import DeckList from '@/components/DeckList';
+import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import { Button } from '@/components/ui/button';
+import { AlertCircle, PlusCircle, Trash2, ArrowLeft, Pencil } from "lucide-react"; // Added Pencil
 
-// Define the Deck type (can be shared in a types file)
 type Deck = {
   id: string;
   name: string;
   description: string | null;
-  userId?: string; // Optional: Include if your API returns it and you need it
+  userId?: string;
 };
 
 export default function Dashboard (){
-    const [authUser, authLoading, authError] = useAuthState(auth); // Renamed to avoid conflict
-    const router = useRouter(); // Keep if needed
+    const [authUser, authLoading, authError] = useAuthState(auth); 
+    const router = useRouter();
 
     // --- State Lifted Up ---
     const [decks, setDecks] = useState<Deck[]>([]);
-    const [loading, setLoading] = useState(true); // Loading state for the deck list
-    const [error, setError] = useState<string | null>(null); // Error state for the deck list
-    const [isDialogOpen, setIsDialogOpen] = useState(false); // State for Dialog
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isDialogOpen, setIsDialogOpen] = useState(false); 
 
     // --- Fetching Logic Lifted Up ---
     // Use useCallback to memoize fetchDecks
@@ -88,14 +86,6 @@ export default function Dashboard (){
         setIsDialogOpen(false); // Close the dialog after successful creation
     };
 
-    const handleSignOut = () => {
-        signOut(auth).catch((error) => {
-          console.error("Sign out error:", error);
-        });
-        // Optional: Redirect after sign out
-        // router.push('/');
-      };
-
     // Handle auth loading state
     if (authLoading) {
         return <p>Loading authentication...</p>; // Or a spinner component
@@ -106,32 +96,21 @@ export default function Dashboard (){
         return <p>Authentication Error: {authError.message}</p>;
     }
 
-    const handlePDFUploader = () => {
-        // route to PDF Uploader page
-        router.push('/pdf-uploader'); // Adjust the path as needed
-    }
-
     return (
-        <div className="container mx-auto p-4 space-y-8"> {/* Added container/padding */}
-            <div className="flex justify-between mb-6"> {/* Header section */}
-                <h1 className="text-3xl font-bold">Dashboard</h1>
-                <div className='flex justify-end'>
-                    <Button className='mr-4' onClick={handlePDFUploader}>PDF Uploader</Button>
-                    {authUser && (
-                        <div className="flex items-center gap-4">
-                            <span>Welcome, {authUser.displayName || authUser.email}!</span>
-                            <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
-                        </div>
-                    )}
+        <div className="container mx-auto p-4 space-y-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4">
+                {/* ... header content ... */}
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+                    <p className="text-md text-muted-foreground mt-1">
+                    See the decks you have created and manage them here.                    
+                    </p>
                 </div>
-                
             </div>
-
             {authUser ? (
                 <>
                     {/* Deck List Section */}
                     <div className="mt-8">
-                        {/* Pass state and data down to DeckList */}
                         <DeckList
                             decks={decks}
                             loading={loading}
@@ -168,7 +147,6 @@ export default function Dashboard (){
                     <div className="text-center">
                         <Button onClick={() => router.push('/login')}>Go to Login</Button>
                     </div>
-                    {/* Ensure your Login page redirects back to dashboard after successful login */}
                 </div>
             )}
         </div>

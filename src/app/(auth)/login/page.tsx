@@ -1,24 +1,20 @@
-// pages/login.js or app/login/page.jsx (or similar)
+"use client";
 
-"use client"; // <--- ADD THIS AT THE VERY TOP
-
-import React from 'react'; // Import React if using JSX
-import { provider, auth } from "@/config/firebase-config"; // Assuming this path is correct
+import React from 'react';
+import { provider, auth } from "@/config/firebase-config"; 
 import { signInWithPopup } from "firebase/auth";
-import { useRouter } from 'next/navigation'; // <--- CHANGE THIS IMPORT
+import { useRouter } from 'next/navigation';
 
-export default function Login () { // Remove async unless you explicitly need it for something *else* inside
-    const router = useRouter(); // This now uses the hook from next/navigation
+export default function Login () { 
+    const router = useRouter();
 
     const handleSignIn = async () => {
         try {
             await signInWithPopup(auth, provider);
-            // Successful sign-in, now navigate
             console.log("Sign-in successful, navigating to dashboard...");
-            router.push('/dashboard'); // Navigate to the dashboard page (or wherever you want)
+            router.push('/dashboard');
         } catch (error) {
             console.error("Error signing in with popup:", error);
-            // Handle login errors (e.g., show a message to the user)
         }
     };
 
@@ -32,6 +28,3 @@ export default function Login () { // Remove async unless you explicitly need it
         </div>
     );
 }
-
-// Make sure you have a corresponding page for the route you're pushing to,
-// e.g., app/dashboard/page.jsx or pages/dashboard.js

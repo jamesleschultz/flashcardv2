@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/config/firebase-config'; // Your client-side Firebase auth instance
 import { Skeleton } from "@/components/ui/skeleton"
-
+import Navbar from '@/components/Navbar';
 
 function ProtectedRoute({ children }: any) {
   const [user, loading, error] = useAuthState(auth);
@@ -137,7 +137,10 @@ function ProtectedRoute({ children }: any) {
 
   if (user) {
     // Render children only if user exists AND loading/syncing is complete
-    return <>{children}</>;
+    return <>
+    <Navbar />  
+    {children}
+    </>;
   }
 
   // Fallback rendering while redirecting or if auth errored
