@@ -11,84 +11,132 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- User Model ---
+// --- User Model (Adjusted for NextAuth) ---
 // Stores user information, linked to Firebase Auth via id (Firebase UID)
 model User {
-  id        String   @id // Firebase UID - THIS IS THE CRITICAL LINK
-  email     String?  @unique // User's email from Firebase (can be optional depending on providers)
-  name      String? // User's display name from Firebase
-  avatarUrl String?  @map("avatar_url") // User's profile picture URL from Firebase
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id            String    @id // Firebase UID - THIS IS THE CRITICAL LINK
+  email         String?   @unique // User's email (NextAuth often requires/uses this)
+  emailVerified DateTime? @map("email_verified") // Added by NextAuth adapter usually
+  name          String?   // User's display name
+  image         String?   // Standard NextAuth field for profile picture URL
+  avatarUrl     String?   @map("avatar_url") // Keep your original field if needed elsewhere
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  // Relationships
-  decks     Deck[] // A user can have multiple decks
-  Flashcard Flashcard[]
+  // --- Relationships ---
+  // Required by NextAuth Prisma Adapter
+  accounts Account[]
+  sessions Session[]
+
+  // Your existing relationships
+  decks      Deck[]
+  flashcards Flashcard[] // Renamed from Flashcard to flashcards (plural)
 
   @@map("users") // Maps this model to the 'users' table in Postgres
 }
 
-// --- Deck Model ---
-// Represents a collection of flashcards
+// --- Deck Model (Unchanged) ---
 model Deck {
-  id          String   @id @default(cuid()) // Unique ID for the deck
-  name        String // Name of the deck (e.g., "JavaScript Basics", "React Hooks")
-  description String? // Optional description for the deck
+  id          String   @id @default(cuid())
+  name        String
+  description String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  // Relationships
-  userId String @map("user_id") // Foreign key linking to the User model
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade) // Relation field
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  cards Flashcard[] // A deck contains multiple flashcards
-  tags  Tag[] // A deck can have multiple tags (Many-to-Many)
+  cards Flashcard[]
+  tags  Tag[]
 
   @@map("decks")
 }
 
-// --- Flashcard Model ---
-// Represents a single flashcard with a question and answer
+// --- Flashcard Model (Unchanged from your last version) ---
 model Flashcard {
   id        String   @id @default(cuid())
-  question  String   @db.Text // The question or front side of the card
-  answer    String   @db.Text // The answer or back side of the card
+  question  String   @db.Text
+  answer    String   @db.Text
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Spaced Repetition Fields (for SM2 or similar algorithms)
-  easinessFactor Float    @default(2.5) @map("easiness_factor") // How easy the card is (e.g., SM2 EF)
-  interval       Int      @default(0) // Days until next review
-  repetitions    Int      @default(0) // Number of times reviewed successfully in a row
-  nextReviewDate DateTime @default(now()) @map("next_review_date") // When the card is due for review
+  easinessFactor Float    @default(2.5) @map("easiness_factor")
+  interval       Int      @default(0)
+  repetitions    Int      @default(0)
+  nextReviewDate DateTime @default(now()) @map("next_review_date")
 
-  // AI Generation Info (Optional but useful)
-  sourceType SourceType? @map("source_type") // How was this card created?
-  sourceRef  String?     @map("source_ref") // Optional reference to the source (e.g., PDF page, text chunk ID)
+  sourceType SourceType? @map("source_type")
+  sourceRef  String?     @map("source_ref")
 
-  // Relationships
-  deckId String @map("deck_id") // Foreign key linking to the Deck model
-  deck   Deck   @relation(fields: [deckId], references: [id], onDelete: Cascade) // Relation field
+  deckId String @map("deck_id")
+  deck   Deck   @relation(fields: [deckId], references: [id], onDelete: Cascade)
 
-  userId String @map("user_id") // Foreign key linking to the User model
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade) // Relation field
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("flashcards")
 }
 
-// --- Tag Model ---
-// For categorizing decks (or potentially individual cards later)
+// --- Tag Model (Unchanged) ---
 model Tag {
   id   String @id @default(cuid())
-  name String @unique // Tag name (e.g., "javascript", "react", "algorithms")
+  name String @unique
 
-  // Relationships (Many-to-Many with Deck)
   decks Deck[]
 
   @@map("tags")
 }
 
-// --- Enum for Flashcard Source ---
+// === NEW: Models Required by NextAuth Prisma Adapter ===
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String  // e.g., 'oauth', 'email', 'credentials'
+  provider          String  // e.g., 'google', 'github', 'credentials'
+  providerAccountId String  @map("provider_account_id") // ID from the provider (e.g., Google ID)
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text // Important for OAuth providers
+  session_state     String?
+
+  // Relation back to User
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Unique constraint for provider + providerAccountId
+  @@unique([provider, providerAccountId])
+  @@map("accounts") // Maps to 'accounts' table
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token") // The token NextAuth uses
+  userId       String   @map("user_id")
+  expires      DateTime // When the session expires
+
+  // Relation back to User
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions") // Maps to 'sessions' table
+}
+
+model VerificationToken {
+  identifier String   // Usually email for email provider
+  token      String   @unique // The verification token
+  expires    DateTime // When the token expires
+
+  // Unique constraint for identifier + token
+  @@unique([identifier, token])
+  @@map("verification_tokens") // Maps to 'verification_tokens' table
+}
+
+// === End NextAuth Models ===
+
+
+// --- Enum for Flashcard Source (Unchanged) ---
 enum SourceType {
   MANUAL
   PDF_IMPORT

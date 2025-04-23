@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, PlusCircle, Trash2, ArrowLeft, Pencil } from "lucide-react"; // Added Pencil
+import { AlertCircle, PlusCircle, Trash2, ArrowLeft, Pencil } from "lucide-react";
 export default function PdfUploaderPage() {
     const [extractedPdfText, setExtractedPdfText] = useState<string | null>(null);
     const router = useRouter();
@@ -19,7 +19,6 @@ export default function PdfUploaderPage() {
         <div className="container mx-auto p-4 space-y-8">
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4">
-                {/* ... header content ... */}
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">PDF Uploader</h1>
                     <p className="text-md text-muted-foreground mt-1">
@@ -60,7 +59,6 @@ export default function PdfUploaderPage() {
                 </div>
             )}
 
-            {/* Back to Dashboard Button */}
         </div>
     );
 }

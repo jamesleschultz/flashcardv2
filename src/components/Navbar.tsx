@@ -1,42 +1,72 @@
-import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from '@/config/firebase-config';
-import { Button } from "./ui/button";
-import { useRouter, usePathname } from 'next/navigation'; // Import usePathname
-import { signOut } from 'firebase/auth';
+
+"use client";
+
+import React from 'react';
+import Link from 'next/link';
+import { useSession, signOut } from 'next-auth/react';
+import { Button } from '@/components/ui/button';
+import { LogOut, UserCircle, LayoutDashboard, BrainCircuit } from 'lucide-react';
 
 export default function Navbar() {
-    const [authUser, authLoading, authError] = useAuthState(auth);
-    const router = useRouter();
-    const pathname = usePathname(); // Get the current route
+  const { data: session, status } = useSession();
 
-    // Determine button text and navigation based on the current route
-    const isOnPDFUploader = pathname === '/pdf-uploader';
-    const buttonText = isOnPDFUploader ? 'Dashboard' : 'PDF Uploader';
-    const handleNavigation = () => {
-        router.push(isOnPDFUploader ? '/dashboard' : '/pdf-uploader');
-    };
+  const handleSignOut = () => {
+    signOut({ callbackUrl: '/login' });
+  };
 
-    const handleSignOut = () => {
-        signOut(auth).catch((error) => {
-            console.error("Sign out error:", error);
-        });
-        router.push('/');
-    };
+  return (
+    // Sticky header with background, blur, and bottom border
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      {/* Container limits width and centers content, added padding */}
+      <div className="container flex h-16 items-center justify-between px-4 md:px-6"> {/* Increased height slightly, added padding */}
 
-    return (
-        <div className="container mx-auto p-4 space-y-8">
-            <div className="flex justify-between mb-6"> {/* Header section */}
-                <h1 className="text-3xl font-bold">TabTutor</h1>
-                <div className='flex justify-end'>
-                    <Button className='mr-4' onClick={handleNavigation}>{buttonText}</Button>
-                    {authUser && (
-                        <div className="flex items-center gap-4">
-                            <span>Welcome, {authUser.displayName || authUser.email}!</span>
-                            <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
-                        </div>
-                    )}
-                </div>
-            </div>
+        {/* Left Side: Logo/Brand */}
+        {/* Always visible, items centered */}
+        <div className="flex items-center">
+          <Link href={session ? "/dashboard" : "/"} className="flex items-center space-x-2">
+             {/* Optional: Replace with your actual logo component/image */}
+             <BrainCircuit className="h-6 w-6 text-primary" />
+             {/* Renamed App Name */}
+             <span className="font-bold text-lg sm:inline-block">Cardly</span>
+          </Link>
+          {/* Optional: Add main navigation links here if needed later */}
+          {/* <nav className="hidden md:flex gap-6 ml-6">
+             <Link href="/explore">Explore</Link>
+          </nav> */}
         </div>
-    );
+
+        {/* Right Side: User Info & Actions */}
+        {/* Aligned to the end, items centered, spacing between items */}
+        <div className="flex items-center space-x-3 md:space-x-4">
+          {/* Loading State */}
+          {status === 'loading' && (
+            <div className="h-8 w-24 animate-pulse rounded-md bg-muted"></div>
+          )}
+
+          {/* Authenticated State */}
+          {status === 'authenticated' && session.user && (
+            <>
+              {/* User Name/Email - hidden on smaller screens */}
+              <span className="hidden sm:inline-block text-sm font-medium text-muted-foreground truncate max-w-[150px]"> {/* Added truncate */}
+                {session.user.name || session.user.email}
+              </span>
+               {/* Sign Out Button */}
+               {/* Changed variant slightly */}
+              <Button onClick={handleSignOut} variant="outline" size="sm">
+                <LogOut className="h-4 w-4 sm:mr-2" /> {/* Hide margin on small screens */}
+                <span className="hidden sm:inline">Sign Out</span> {/* Hide text on small screens */}
+              </Button>
+            </>
+          )}
+
+          {/* Unauthenticated State */}
+          {status === 'unauthenticated' && (
+             <Button asChild variant="default" size="sm"> {/* Changed to default variant */}
+                <Link href="/login">Login</Link>
+             </Button>
+          )}
+        </div>
+      </div>
+    </header>
+  );
 }
