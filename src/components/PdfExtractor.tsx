@@ -176,8 +176,6 @@ export default function PdfTextExtractorClient({ onTextExtracted }: PdfTextExtra
                 </div>
             )}
 
-            {extractedText}
-
             {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />

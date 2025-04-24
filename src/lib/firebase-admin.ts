@@ -1,6 +1,8 @@
+// src/lib/firebase-admin.ts
 import * as admin from 'firebase-admin';
 
-if (!admin.apps.length) {
+// --- Check if already initialized ---
+if (!admin.apps.length) { // Check the length of the apps array
   try {
     console.log("Initializing Firebase Admin SDK...");
     if (!process.env.FIREBASE_ADMIN_SDK_JSON_BASE64) {
@@ -16,10 +18,14 @@ if (!admin.apps.length) {
       credential: admin.credential.cert(serviceAccount),
     });
     console.log("Firebase Admin SDK Initialized Successfully.");
-  }catch (error) {
+  } catch (error) {
     console.error("Firebase Admin SDK Initialization Error:", error instanceof Error ? error.stack : error);
+    // Decide how to handle init failure - maybe throw to prevent app start?
   }
+} else {
+   console.log("Firebase Admin SDK already initialized."); // Log if reusing
 }
 
+// Export the auth instance regardless of whether it was just initialized or already existed
 export const firebaseAdminAuth = admin.auth();
-export default admin;
+export default admin; // Export default instance if needed
