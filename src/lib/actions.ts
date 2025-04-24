@@ -97,10 +97,10 @@ const DeckCreateSchema = z.object({
         // Return success state matching FormState
         return { status: 'success', message: 'Deck created successfully!', errors: null };
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Create Deck Action Error:", error);
         let errorMessage = 'Database Error: Failed to create deck.';
-        if (error?.code === 'P2002') { // Prisma unique constraint violation code
+        if (error) { // Prisma unique constraint violation code
              errorMessage = 'A deck with this name might already exist.';
         }
         // Return error state matching FormState
