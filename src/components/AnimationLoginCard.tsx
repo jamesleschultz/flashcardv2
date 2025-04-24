@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LogIn, RotateCcwSquare, Milestone } from 'lucide-react';
 
-interface AnimatedLoginCardProps {
+export interface AnimatedLoginCardProps {
   onSignInClick: () => Promise<void>;
+  isSigningIn: boolean;
 }
-
 export default function AnimatedLoginCard({ onSignInClick }: AnimatedLoginCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
