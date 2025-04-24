@@ -5,7 +5,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
-import { LogOut, UserCircle, LayoutDashboard, BrainCircuit } from 'lucide-react';
+import { LogOut, BrainCircuit } from 'lucide-react';
 
 export default function Navbar() {
   const { data: session, status } = useSession();

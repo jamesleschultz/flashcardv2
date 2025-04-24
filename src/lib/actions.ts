@@ -4,8 +4,7 @@ import prisma from '@/lib/prisma'; // Your singleton Prisma client
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getServerSession } from "next-auth/next";
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'; // Adjust path if needed
-
+import { authOptions } from '@/lib/authOptions';
 // --- Helper Function to Get Authenticated User ID ---
 async function getCurrentUserId(): Promise<string | null> {
     try {

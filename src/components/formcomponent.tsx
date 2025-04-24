@@ -74,10 +74,15 @@ export default function FormComponent({ onDeckCreated }: FormComponentProps) {
         console.log('Deck created successfully:', response.data);
         form.reset(); // Clear the form
         onDeckCreated(); // <-- Call the callback function passed from Dashboard
-    } catch (error: any) {
-        console.error('Error creating deck:', error.response?.data || error.message);
-        const errorMessage = error.response?.data?.message || 'Failed to create deck. Please try again.';
-        setSubmitError(`Error: ${errorMessage}`);
+    } catch (error) {
+      console.error("Error signing in:", error);
+      let message = "An unknown error occurred.";
+      if (error instanceof Error) {
+          message = error.message;
+          // Check for specific Firebase error codes if needed
+          // if ('code' in error && error.code === 'auth/popup-closed-by-user') { ... }
+      }
+        setSubmitError(`Error creating deck: ${message}`);
     } finally {
         setIsSubmitting(false);
     }

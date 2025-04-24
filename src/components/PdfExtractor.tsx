@@ -3,7 +3,6 @@
 
 import React, { useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress"; // For visual feedback
@@ -13,7 +12,6 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert"
-import { Textarea } from '@/components/ui/textarea'; // To display text
 
 // Specify the worker source for pdf.js
 // Adjust the path based on where pdf.js worker ends up in your build output (usually node_modules)
@@ -108,10 +106,16 @@ export default function PdfTextExtractorClient({ onTextExtracted }: PdfTextExtra
                     onTextExtracted(fullText);
                     // ---
 
-                } catch (pdfError: any) {
-                    console.error('Error parsing PDF:', pdfError);
-                    setError(`Failed to parse PDF: ${pdfError.message || 'Unknown error'}`);
-                } finally {
+                } catch (error) {
+                    console.error("Error signing in:", error);
+                    let message = "An unknown error occurred.";
+                    if (error instanceof Error) {
+                        message = error.message;
+                        // Check for specific Firebase error codes if needed
+                        // if ('code' in error && error.code === 'auth/popup-closed-by-user') { ... }
+                    }
+                      setError(`Error creating deck: ${message}`);
+                  } finally {
                     setIsParsing(false);
                     // Reset file input value after processing
                     event.target.value = '';
@@ -127,9 +131,9 @@ export default function PdfTextExtractorClient({ onTextExtracted }: PdfTextExtra
              // Start reading the file as ArrayBuffer
             reader.readAsArrayBuffer(file);
 
-        } catch (err: any) {
+        } catch (err) {
             console.error('Error setting up file reader:', err);
-            setError(`Error processing file: ${err.message}`);
+            setError(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
             setIsParsing(false);
              event.target.value = '';
         }
@@ -172,6 +176,8 @@ export default function PdfTextExtractorClient({ onTextExtracted }: PdfTextExtra
                 </div>
             )}
 
+            {extractedText}
+
             {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -179,7 +185,7 @@ export default function PdfTextExtractorClient({ onTextExtracted }: PdfTextExtra
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
             )}
-
+        
         </div>
     );
 }

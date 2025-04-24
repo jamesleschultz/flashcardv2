@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import DeckList from "@/components/DeckList";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import FormComponent from './formcomponent';
-import { LogOut, PlusCircle, FileUp } from "lucide-react";
+import { PlusCircle, FileUp } from "lucide-react";
 
 interface Deck {
   id: string;
@@ -21,7 +21,7 @@ interface DashboardClientProps {
   userId: string;
 }
 
-export default function DashboardClient({ initialDecks, userId }: DashboardClientProps) {
+export default function DashboardClient({ initialDecks }: DashboardClientProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [decks, setDecks] = useState<Deck[]>(initialDecks);
@@ -30,10 +30,6 @@ export default function DashboardClient({ initialDecks, userId }: DashboardClien
   useEffect(() => {
     setDecks(initialDecks);
   }, [initialDecks]);
-
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/login' });
-  };
 
   const handleDeckActionComplete = () => {
     setIsCreateDialogOpen(false);

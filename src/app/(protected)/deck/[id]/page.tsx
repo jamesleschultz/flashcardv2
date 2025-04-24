@@ -1,83 +1,88 @@
-import { Suspense } from 'react';
+// src/app/(protected)/deck/[id]/page.tsx
+// SERVER COMPONENT
+
 import { notFound, redirect } from 'next/navigation';
 import prisma from '@/lib/prisma';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from 'next/link';
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from '@/lib/authOptions'; // Adjust path if needed
 
-import FlashcardListClient from './FlashcardListClient';
-import DeckActionButtons from './DeckActionButtons';
+import FlashcardListClient from './FlashcardListClient'; // Ensure correct path
+import DeckActionButtons from './DeckActionButtons';   // Ensure correct path
 
+// Types for data remain useful
+interface Flashcard { id: string; question: string; answer: string; deckId: string; userId: string; }
+interface Deck { id: string; name: string; userId: string; }
 
-interface Flashcard {
-  id: string;
-  question: string;
-  answer: string;
-  deckId: string;
-  userId: string;
-}
-interface Deck {
-  id: string;
-  name: string;
-  userId: string;
-}
-interface DeckPageProps { params: { id: string }; }
-
-//  Data Fetching Helper 
+// --- Data Fetching Helper (No change needed here) ---
 async function getDeckAndCards(deckId: string, userId: string): Promise<{ deck: Deck | null, flashcards: Flashcard[] }> {
+    // ... (implementation remains the same)
     try {
-        const deck = await prisma.deck.findUnique({
-            where: { id: deckId, userId: userId },
-            select: { id: true, name: true, userId: true }
-        });
-
-        if (!deck) {
-            console.log(`Deck not found or user ${userId} does not own deck ${deckId}`);
-            return { deck: null, flashcards: [] };
-        }
-
-        const flashcards = await prisma.flashcard.findMany({
-            where: { deckId: deckId },
-            orderBy: { createdAt: 'asc' },
-            select: { id: true, question: true, answer: true, deckId: true, userId: true }
-        });
-
+        const deck = await prisma.deck.findUnique({ where: { id: deckId, userId: userId }, select: { id: true, name: true, userId: true } });
+        if (!deck) return { deck: null, flashcards: [] };
+        const flashcards = await prisma.flashcard.findMany({ where: { deckId: deckId }, orderBy: { createdAt: 'asc' }, select: { id: true, question: true, answer: true, deckId: true, userId: true } });
         return { deck, flashcards };
     } catch (error) {
-        console.error("Error fetching deck/cards:", error);
-
+        console.error(`Error fetching data for deck ${deckId}:`, error);
         throw new Error("Failed to load deck data.");
     }
 }
 
-export default async function DeckPage({ params }: DeckPageProps) {
+// --- The Server Component ---
+// Type the incoming prop inline as a Promise containing the expected shape
+// And await it directly, destructuring the 'id'
+export default async function DeckPage({ params }: { params: Promise<{ id: string }> }) { // Type as Promise
+
+    // --- AWAIT PARAMS and Destructure ID ---
+    // This is the core change based on the example fix
+    let id: string; // Variable to hold the extracted ID
+    try {
+        console.log("Awaiting params promise...");
+        // Directly await and destructure. Assumes params resolves to { id: string }
+        const resolvedParams = await params;
+        id = resolvedParams.id; // Extract id after await
+
+        // Validate the extracted id
+        if (!id || typeof id !== 'string') {
+            throw new Error("Invalid 'id' retrieved from resolved params.");
+        }
+        console.log("Params awaited, extracted id:", id);
+    } catch (error) {
+        console.error("Error awaiting or validating params promise:", error);
+        notFound(); // If await fails or validation fails
+    }
+    // --- Use the extracted 'id' variable from here on ---
+
+
+    // 1. Authenticate User
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-
-        const callbackUrl = encodeURIComponent(`/deck/${params.id}`);
+        const callbackUrl = encodeURIComponent(`/deck/${id}`); // Use extracted id
         redirect(`/login?callbackUrl=${callbackUrl}`);
     }
     const userId = session.user.id;
 
-
+    // 2. Decode ID (already validated it's a string above)
     let decodedDeckId: string;
     try {
-        decodedDeckId = decodeURIComponent(params.id);
+        decodedDeckId = decodeURIComponent(id); // Use extracted id
+        if (!decodedDeckId) throw new Error("Decoded ID is empty.");
     } catch (e) {
-        console.error("Invalid deck ID format:", params.id);
+        console.error("Error decoding deck ID:", id, e);
         notFound();
     }
 
-
+    // 3. Fetch Data
     const { deck, flashcards } = await getDeckAndCards(decodedDeckId, userId);
 
+    // 4. Handle Not Found
     if (!deck) {
-        notFound(); 
+        notFound();
     }
 
-
+    // 5. Render Page
     return (
         <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-6">
             {/* Header */}
@@ -95,11 +100,13 @@ export default async function DeckPage({ params }: DeckPageProps) {
                 </Button>
             </div>
 
-            {/* Action Buttons (Client Component) */}
+            {/* Action Buttons */}
+            {/* Pass deck.id (which is guaranteed to exist if we got here) */}
             <DeckActionButtons deckId={deck.id} />
 
-            {/* Flashcard List (Client Component) */}
+            {/* Flashcard List */}
             <div className="mt-8 border-t pt-6">
+                 {/* Pass deck.id */}
                 <FlashcardListClient
                     initialFlashcards={flashcards}
                     deckId={deck.id}

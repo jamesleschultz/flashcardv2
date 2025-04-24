@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, PlusCircle, Trash2, ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft} from "lucide-react";
 export default function PdfUploaderPage() {
     const [extractedPdfText, setExtractedPdfText] = useState<string | null>(null);
     const router = useRouter();

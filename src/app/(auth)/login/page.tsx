@@ -34,8 +34,15 @@ export default function LoginPage() {
                 setError(nextAuthResponse?.error || "NextAuth sign-in failed.");
                 setIsSigningIn(false);
             }
-        } catch (firebaseError: any) {
-            setError(`Login failed: ${firebaseError.message}`);
+        }catch (error) {
+            console.error("Error signing in:", error);
+            let message = "An unknown error occurred.";
+            if (error instanceof Error) {
+                message = error.message;
+                // Check for specific Firebase error codes if needed
+                // if ('code' in error && error.code === 'auth/popup-closed-by-user') { ... }
+            }
+            setError(`Login failed: ${message}`);
             setIsSigningIn(false);
         }
     };

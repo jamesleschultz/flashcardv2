@@ -16,8 +16,8 @@ if (!admin.apps.length) {
       credential: admin.credential.cert(serviceAccount),
     });
     console.log("Firebase Admin SDK Initialized Successfully.");
-  } catch (error: any) {
-    console.error("Firebase Admin SDK Initialization Error:", error.stack);
+  }catch (error) {
+    console.error("Firebase Admin SDK Initialization Error:", error instanceof Error ? error.stack : error);
   }
 }
 
