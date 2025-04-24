@@ -36,6 +36,77 @@ type ActionResponse = Promise<{
     errors?: Record<string, string[] | undefined> | null; // For Zod errors
 }>;
 
+export type DeckFormState = {
+    status: 'success' | 'error' | 'idle'; // Use 'idle' for initial state
+    message: string | null;
+    errors?: { // Structure matching Zod's flattened errors
+        name?: string[];
+        description?: string[];
+    } | null;
+    // Optionally include timestamp or other fields if needed
+};
+
+// --- Zod Schema for Deck Creation ---
+const DeckCreateSchema = z.object({
+  // Use 'name' here to match the Zod schema fields with potential error keys
+  name: z.string().min(2, "Name must be >= 2 chars.").max(50, "Name must be <= 50 chars."),
+  description: z.string().min(2, "Min 2 chars.").max(200, "Max 200 chars.").optional().or(z.literal("")).nullable(),
+});
+
+  export async function createDeckAction(
+    previousState: DeckFormState, // First argument is previous state
+    formData: FormData          // Second argument is form data
+): Promise<DeckFormState> {     // Return type must match FormState
+    console.log("createDeckAction called. Prev State:", previousState);
+
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) {
+        return { status: 'error', message: 'Unauthorized: Not logged in.', errors: null };
+    }
+
+    // Extract using form names ('deckname', 'description')
+    const validatedFields = DeckCreateSchema.safeParse({
+        name: formData.get('deckname'),
+        description: formData.get('description') || null,
+    });
+
+    if (!validatedFields.success) {
+        console.log("Validation errors:", validatedFields.error.flatten().fieldErrors);
+        // Return state matching FormState, including Zod errors
+        return {
+            status: 'error',
+            message: 'Invalid input.',
+            errors: validatedFields.error.flatten().fieldErrors
+        };
+    }
+
+    // Use validated data (name, description)
+    const { name, description } = validatedFields.data;
+
+    try {
+        console.log(`Action: Creating deck '${name}' for user ${currentUserId}`);
+        await prisma.deck.create({
+            data: {
+                name: name, // Use validated name
+                description: description, // Use validated description
+                userId: currentUserId,
+            },
+        });
+
+        revalidatePath('/dashboard');
+        // Return success state matching FormState
+        return { status: 'success', message: 'Deck created successfully!', errors: null };
+
+    } catch (error: any) {
+        console.error("Create Deck Action Error:", error);
+        let errorMessage = 'Database Error: Failed to create deck.';
+        if (error?.code === 'P2002') { // Prisma unique constraint violation code
+             errorMessage = 'A deck with this name might already exist.';
+        }
+        // Return error state matching FormState
+        return { status: 'error', message: errorMessage, errors: null };
+    }
+}
 
 // --- CREATE Flashcard Action ---
 export async function createFlashcardAction(formData: FormData): ActionResponse {

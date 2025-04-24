@@ -1,138 +1,130 @@
-"use client"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { Button } from "@/components/ui/button"
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import axios from "axios"
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/config/firebase-config';
-import { useState } from "react"; // Import useState
+// src/components/FormComponent.tsx
+"use client";
 
-// Define the schema (you might want description optional)
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useEffect } from "react"; // Removed unused useState
+
+// --- Import React DOM hooks and Server Action ---
+import { useFormState, useFormStatus } from 'react-dom';
+// --- Import Action and State Type ---
+import { createDeckAction, type DeckFormState } from '@/lib/actions'; // Adjust path
+
+// Schema for client-side validation (names match form fields)
 const formSchema = z.object({
-  deckname: z.string().min(2, "Name must be at least 2 characters.").max(50, "Name cannot exceed 50 characters."),
-  // Make description optional and allow empty string, but validate length if provided
-  description: z.string().min(2, "Description must be at least 2 characters.").max(200, "Description cannot exceed 200 characters.").optional().or(z.literal("")),
-})
+  deckname: z.string().min(2, "Min 2 chars.").max(50, "Max 50 chars."),
+  description: z.string().min(2, "Min 2 chars.").max(200, "Max 200 chars.").optional().or(z.literal("")),
+});
 
-// Define props including the callback
+// Submit button using useFormStatus
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending} className="w-full">
+      {pending ? 'Creating...' : 'Create Deck'}
+    </Button>
+  );
+}
+
 interface FormComponentProps {
-  onDeckCreated: () => void; // Callback function
+  onDeckCreated: () => void; // Callback on success
 }
 
 export default function FormComponent({ onDeckCreated }: FormComponentProps) {
-  const [user, userLoading, userError] = useAuthState(auth); // Use specific names
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
+  // Setup react-hook-form
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      deckname: "",
-      description: "",
-    },
-  })
+    defaultValues: { deckname: "", description: "" },
+    mode: "onChange",
+  });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    // Ensure user is loaded and authenticated before submitting
-    if (userLoading) {
-        setSubmitError("Verifying user...");
-        return;
-    }
-    if (userError) {
-        setSubmitError(`Authentication error: ${userError.message}`);
-        return;
-    }
-     if (!user?.uid) {
-      console.error('User is not authenticated. Cannot create deck.');
-      setSubmitError('You must be logged in to create a deck.');
-      return;
-    }
+  // --- Setup useFormState ---
+  // Define initialState matching the FormState type from actions.ts
+  const initialState: DeckFormState = {
+      message: null,
+      errors: null,
+      status: 'idle' // Set initial status
+  };
+  // Pass the action and initialState
+  const [state, formAction] = useFormState(createDeckAction, initialState);
 
-    setIsSubmitting(true);
-    setSubmitError(null);
-
-    const deckData = {
-      name: values.deckname,
-      description: values.description || null, // Send null if description is empty/undefined
-      userId: user.uid,
-    };
-    console.log('Submitting deck data:', deckData);
-
-    try {
-        const response = await axios.post('/api/deck', deckData);
-        console.log('Deck created successfully:', response.data);
-        form.reset(); // Clear the form
-        onDeckCreated(); // <-- Call the callback function passed from Dashboard
-    } catch (error) {
-      console.error("Error signing in:", error);
-      let message = "An unknown error occurred.";
-      if (error instanceof Error) {
-          message = error.message;
-          // Check for specific Firebase error codes if needed
-          // if ('code' in error && error.code === 'auth/popup-closed-by-user') { ... }
+  // --- Effect to handle action result ---
+  useEffect(() => {
+    // Check status from the server action's response
+    if (state?.status === 'success') {
+      console.log("Action Success:", state.message);
+      form.reset(); // Clear form fields
+      onDeckCreated(); // Trigger parent callback (e.g., close dialog)
+    } else if (state?.status === 'error') {
+      console.error("Action Error:", state.message);
+      // Reset previous server errors first
+      form.clearErrors();
+      // Set field errors based on the response from the server action
+      if (state.errors) {
+          // Map 'name' error from Zod schema (in action) to 'deckname' field in form
+          if (state.errors.name) {
+               form.setError('deckname', { type: 'server', message: state.errors.name[0] });
+          }
+          // Map 'description' error
+          if (state.errors.description) {
+               form.setError('description', { type: 'server', message: state.errors.description[0] });
+          }
       }
-        setSubmitError(`Error creating deck: ${message}`);
-    } finally {
-        setIsSubmitting(false);
+      // Display general message if no specific field errors were mapped/returned
+      // (You could add a dedicated <p> tag below the form for this)
+      // Example: setGeneralError(state.message);
     }
-  }
+    // Intentionally don't reset status to idle here, let the next action call do that implicitly
+    // if needed, or add manual reset logic elsewhere if required.
+  }, [state, onDeckCreated, form]); // Dependencies
+
 
   return (
     <Form {...form}>
-      {/* Use async version of handleSubmit if needed, but standard usually works */}
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6"> {/* Reduced space */}
+      {/* Pass formAction to the form's action prop */}
+      <form action={formAction} className="space-y-4">
+        {/* Form Fields remain the same */}
         <FormField
           control={form.control}
-          name="deckname"
+          name="deckname" // Matches FormData key expected by action via Zod schema
           render={({ field }) => (
             <FormItem>
               <FormLabel>Deck Name *</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., React Basics" {...field} disabled={isSubmitting || userLoading} />
+                <Input placeholder="e.g., React Basics" {...field} />
               </FormControl>
-              <FormDescription>
-                Choose a clear name (2-50 chars).
-              </FormDescription>
-              <FormMessage />
+              <FormDescription> Min 2, Max 50 chars. </FormDescription>
+              <FormMessage /> {/* Shows react-hook-form errors (client & server) */}
             </FormItem>
           )}
         />
         <FormField
           control={form.control}
-          name="description"
+          name="description" // Matches FormData key expected by action via Zod schema
           render={({ field }) => (
             <FormItem>
               <FormLabel>Description (Optional)</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Key concepts for beginners" {...field} disabled={isSubmitting || userLoading} />
+                <Input placeholder="e.g., Key concepts..." {...field} />
               </FormControl>
-              <FormDescription>
-                Add a short description (2-200 chars).
-              </FormDescription>
+              <FormDescription> Max 200 chars. </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Display submission errors */}
-        {submitError && <p className="text-sm font-medium text-destructive">{submitError}</p>}
-        {userLoading && <p className="text-sm text-muted-foreground">Checking auth...</p>}
+        {/* Display general server errors ONLY if no field errors were mapped */}
+        {state?.status === 'error' && !state.errors && state.message && (
+             <p className="text-sm font-medium text-destructive">{state.message}</p>
+        )}
 
-        <Button type="submit" disabled={isSubmitting || userLoading || !user} className="w-full">
-          {isSubmitting ? 'Creating...' : 'Create Deck'}
-        </Button>
+        {/* Submit button using useFormStatus */}
+        <SubmitButton />
       </form>
     </Form>
-  )
+  );
 }
