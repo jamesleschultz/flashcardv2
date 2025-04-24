@@ -1,15 +1,21 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
 
-const prismaClientSingleton = () => {
-  return new PrismaClient()
+// Extend the global object type for TypeScript checking
+declare global {
+  // eslint-disable-next-line no-var
+  var prisma: PrismaClient | undefined;
 }
 
-declare const globalThis: {
-  prismaGlobal: ReturnType<typeof prismaClientSingleton>;
-} & typeof global;
+// Create a single Prisma Client instance and attach it to `globalThis` in development
+const prismaInstance = globalThis.prisma || new PrismaClient({
+  log: ['query', 'info', 'warn', 'error'], // Enable logging for debugging
+});
 
-const prisma = globalThis.prismaGlobal ?? prismaClientSingleton()
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.prisma = prismaInstance;
+  console.log("--- Prisma Client instance attached to globalThis ---");
+} else {
+  console.log("--- Prisma Client instance created for production ---");
+}
 
-export default prisma
-
-if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma
+export default prismaInstance;
