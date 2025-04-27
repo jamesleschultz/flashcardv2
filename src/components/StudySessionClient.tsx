@@ -113,7 +113,7 @@ export default function StudySessionClient({ initialFlashcards, deckId, onSessio
       {/* Back Button */}
        {sessionFinished && (
            <div className="pt-4">
-               <Button asChild variant="outline"> <Link href={`/deck/${deckId}`}>Back to Deck Details</Link> </Button>
+               <Button variant="outline"> <Link href={`/deck/${deckId}`}>Back to Deck Details</Link> </Button>
            </div>
         )}
     </div>
