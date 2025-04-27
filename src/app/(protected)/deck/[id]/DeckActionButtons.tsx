@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import FormComponentCard from '@/components/FormComponentCard'
-import { AlertCircle, PlusCircle, Trash2 } from "lucide-react";
+import { AlertCircle, PlusCircle, Trash2, Play } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
+import Link from 'next/link';
 import { deleteDeckAction } from '@/lib/actions';
 
 
@@ -45,6 +45,13 @@ export default function DeckActionButtons({ deckId }: DeckActionButtonsProps) {
 
     return (
         <div className="flex flex-wrap gap-3 pt-2">
+
+            <Button> {/* Primary action style */}
+                <Link href={`/deck/${deckId}/study`}> {/* Link to the study page */}
+                    <Play />
+                    Start Studying
+                </Link>
+             </Button>
             {/* Create Card Dialog */}
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                 <DialogTrigger asChild>
