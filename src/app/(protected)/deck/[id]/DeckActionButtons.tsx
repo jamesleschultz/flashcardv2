@@ -47,8 +47,9 @@ export default function DeckActionButtons({ deckId }: DeckActionButtonsProps) {
         <div className="flex flex-wrap gap-3 pt-2">
 
             <Button> {/* Primary action style */}
-                <Link href={`/deck/${deckId}/study`}> {/* Link to the study page */}
-                    <Play />
+            <Link href={`/deck/${deckId}/study`} className="flex items-center">
+                    {/* Icon needs size and margin */}
+                    <Play className="mr-2 h-4 w-4" /> {/* Added margin-right and size */}
                     Start Studying
                 </Link>
              </Button>

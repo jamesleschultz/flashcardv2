@@ -73,7 +73,7 @@ export default function StudySessionClient({ initialFlashcards, deckId, onSessio
                              <CheckCircle className="w-16 h-16 text-green-500" />
                              <h2 className="text-2xl font-semibold text-foreground">All Done!</h2>
                              <p className="text-muted-foreground">
-                                You&#39ve reviewed all cards in this session.
+                                Excellent work! All cards in this session are reviewed.
                              </p>
                         </CardContent>
                      </Card>
