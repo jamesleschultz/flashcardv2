@@ -389,11 +389,6 @@ export async function generateFlashcardsFromTextAction(
 
     // 3. Initialize OpenAI Client (Keep)
     if (!process.env.OPENAI_API_KEY) return { ...initialState, status: 'error', message: 'Server config error: OpenAI key missing.' };
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    // 4. Prepare Prompt (Keep)
-    const systemPrompt = `You generate flashcards... Output ONLY a valid JSON array...`;
-    const userPrompt = `Generate flashcards from the following text:\n---\n${inputText}\n---`;
 
     // 5. Call OpenAI API and Parse (wrapped in try/catch)
     try {
