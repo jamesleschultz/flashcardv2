@@ -5,6 +5,10 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/authOptions';
+
+import OpenAI from 'openai';
+
+
 // --- Helper Function to Get Authenticated User ID ---
 async function getCurrentUserId(): Promise<string | null> {
     try {
@@ -15,6 +19,13 @@ async function getCurrentUserId(): Promise<string | null> {
         return null;
     }
 }
+
+export type AiActionResponse = {
+    status: 'success' | 'error' | 'idle';
+    message: string | null;
+    errors?: { inputText?: string[]; } | null;
+    parsedCards?: { question: string; answer: string }[] | null;
+};
 
 // --- Schemas for Input Validation ---
 const FlashcardCreateSchema = z.object({
@@ -27,6 +38,10 @@ const FlashcardUpdateSchema = z.object({
   question: z.string().min(2, "Question too short").max(200, "Question too long"),
   answer: z.string().min(2, "Answer too short").max(500, "Answer too long"),
   flashcardId: z.string().cuid("Invalid Flashcard ID"),
+});
+
+const GenerateInputSchema = z.object({
+    inputText: z.string().min(50, "Need >= 50 chars.").max(15000, "Text too long."),
 });
 
 // --- Action Return Type ---
@@ -241,5 +256,169 @@ export async function deleteDeckAction(deckId: string): ActionResponse {
     } catch (error) {
         console.error("Delete Deck Action Error:", error);
         return { status: 'error', message: 'Database Error: Failed to delete deck.' };
+    }
+}
+
+
+console.log("--- DEBUG: USING HARDCODED API KEY ---");
+const openai = new OpenAI({ 
+    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY as string, 
+});
+
+// --- Structured Prompt Function ---
+// (Moved inside actions.ts as it's specific to this action's logic)
+const structuredPrompt = (text: string) => `
+You are an assistant generating flashcards (question/answer pairs) from text.
+Create flashcards with a clear question and a concise answer based ONLY on the provided text.
+Output ONLY a valid JSON array of objects, where each object has ONLY a "question" (string) key and an "answer" (string) key.
+Ensure questions and answers are distinct and meaningful for learning.
+Example: [{"question": "Example Q1?", "answer": "Example A1."}, {"question": "Example Q2?", "answer": "Example A2."}]
+
+Generate flashcards from the following text:
+---
+${text}
+---
+`;
+
+// --- Function to Call OpenAI API ---
+// This focuses *only* on getting the raw response
+async function getOpenAICompletion(text: string): Promise<string | null> {
+     if (!openai) { // Check if client initialized successfully
+        console.error("OpenAI client not available in getOpenAICompletion.");
+        throw new Error("OpenAI client is not configured on the server.");
+     }
+    console.log("Sending request to OpenAI...");
+    try {
+        const completion = await openai.chat.completions.create({
+            messages: [
+                // Using a simpler system message might be okay if prompt is detailed
+                {"role": "system", "content": "You are an assistant that generates flashcards in JSON format."},
+                {"role": "user", "content": structuredPrompt(text)} // Pass the structured user prompt
+            ],
+            model: 'gpt-3.5-turbo', // Use the latest model available
+        });
+        const content = completion.choices[0]?.message?.content;
+        console.log("OpenAI Raw Response:", content);
+        return content ?? null; // Return content or null
+    } catch (error) {
+        console.error("Error fetching response from OpenAI:", error);
+        // Re-throw specific error type if possible or a generic one
+        throw new Error(`OpenAI API call failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+// --- Function to Parse the OpenAI Response ---
+// This focuses *only* on parsing the expected JSON structure
+type ParsedCard = { question: string; answer: string };
+function parseFlashcards(response: string | null): ParsedCard[] {
+    if (!response) {
+        console.log("Parsing skipped: No response string provided.");
+        return [];
+    }
+    console.log("Attempting to parse AI response...");
+
+    // --- Refined Cleaning Logic ---
+    let jsonString = response.trim();
+
+    // Repeatedly remove ```json or ``` from the start and ``` from the end
+    // This handles potential variations like ```json\n[...]``` or ```\n[...]```
+    const fenceStartJson = "```json";
+    const fenceStart = "```";
+    const fenceEnd = "```";
+
+    // Remove potential leading fences and optional newline
+    if (jsonString.startsWith(fenceStartJson)) {
+        jsonString = jsonString.substring(fenceStartJson.length).trim();
+    } else if (jsonString.startsWith(fenceStart)) {
+        jsonString = jsonString.substring(fenceStart.length).trim();
+    }
+
+    // Remove potential trailing fence
+    if (jsonString.endsWith(fenceEnd)) {
+        jsonString = jsonString.substring(0, jsonString.length - fenceEnd.length).trim();
+    }
+
+    // Sometimes the JSON itself might be missing or incomplete after removing fences
+    if (!jsonString || (!jsonString.startsWith('[') && !jsonString.startsWith('{'))) {
+         console.error("Cleaned string doesn't appear to be valid JSON after removing fences:", jsonString.substring(0,100)+"...");
+         throw new Error("Could not extract valid JSON content from the AI response after cleaning.");
+    }
+    // --- End Refined Cleaning Logic ---
+
+    console.log("Attempting JSON.parse on cleaned string:", jsonString.substring(0,100) + "...");
+    try {
+        const parsed = JSON.parse(jsonString); // Parse the *cleaned* string
+
+        // Validate structure
+         if (!Array.isArray(parsed) || !parsed.every(item => typeof item === 'object' && item !== null && 'question' in item && 'answer' in item && typeof item.question === 'string' && typeof item.answer === 'string')) {
+            console.error("Parsed data is not a valid array of {question, answer} objects:", parsed);
+            throw new Error("AI response structure is not the expected JSON array format after parsing.");
+        }
+
+        // Filter empty/invalid cards
+        const validCards = parsed.filter(card => card.question?.trim().length > 1 && card.answer?.trim().length > 1);
+        console.log(`Parsed ${validCards.length} valid flashcards.`);
+        return validCards;
+
+    } catch (error) {
+        console.error("Failed to parse cleaned AI JSON response:", error);
+        // Include snippet of the *cleaned* string in the error
+        const cleanedSnippet = jsonString.substring(0, 200);
+        throw new Error(`Failed to parse AI response as JSON. Content after cleaning started with: ${cleanedSnippet}... Parse Error: ${error instanceof Error ? error.message : 'Unknown'}`);
+    }
+}
+
+// --- Main Server Action (Orchestrator) ---
+// This action calls the helper functions
+export async function generateFlashcardsFromTextAction(
+    previousState: AiActionResponse,
+    formData: FormData
+): Promise<AiActionResponse> {
+
+    console.log("generateFlashcardsFromTextAction called.");
+    const initialState: AiActionResponse = { status: 'idle', message: null, errors: null, parsedCards: null };
+
+    // 1. Authentication (Keep)
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) return { ...initialState, status: 'error', message: 'Unauthorized.' };
+
+    // 2. Validation (Keep)
+    const validatedFields = GenerateInputSchema.safeParse({ inputText: formData.get('inputText') });
+    if (!validatedFields.success) return { ...initialState, status: 'error', message: 'Invalid input text.', errors: validatedFields.error.flatten().fieldErrors };
+    const { inputText } = validatedFields.data;
+
+    // 3. Initialize OpenAI Client (Keep)
+    if (!process.env.OPENAI_API_KEY) return { ...initialState, status: 'error', message: 'Server config error: OpenAI key missing.' };
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // 4. Prepare Prompt (Keep)
+    const systemPrompt = `You generate flashcards... Output ONLY a valid JSON array...`;
+    const userPrompt = `Generate flashcards from the following text:\n---\n${inputText}\n---`;
+
+    // 5. Call OpenAI API and Parse (wrapped in try/catch)
+    try {
+        // Step 5a: Get completion
+        const aiResponseContent = await getOpenAICompletion(inputText); // Assume this returns raw string or null
+         if (aiResponseContent === null) {
+            throw new Error("Received null content from OpenAI completion.");
+        }
+
+        // Step 5b: Parse completion using the updated parseFlashcards function
+        const generatedCards = parseFlashcards(aiResponseContent); // Pass raw response here
+
+        // --- Database Saving Step (REMOVED FOR NOW) ---
+
+        // Return success state (FOR LOGGING/TESTING)
+        return {
+            status: 'success',
+            message: `TEST: Successfully parsed ${generatedCards.length} flashcards. See server logs.`,
+            parsedCards: generatedCards,
+            errors: null
+        };
+
+    } catch (error: unknown) { // Catch errors from getOpenAICompletion or parseFlashcards
+        console.error("Error in AI generation/parsing flow:", error);
+        const message = error instanceof Error ? error.message : "Unknown error during AI processing.";
+        return { ...initialState, status: 'error', message: `Error: ${message}` };
     }
 }
