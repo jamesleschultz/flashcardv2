@@ -23,8 +23,14 @@ async function getCurrentUserId(): Promise<string | null> {
 export type AiActionResponse = {
     status: 'success' | 'error' | 'idle';
     message: string | null;
-    errors?: { inputText?: string[]; } | null;
-    parsedCards?: { question: string; answer: string }[] | null;
+    errors?: {
+        inputText?: string[];
+        deckId?: string[]; // Re-add deckId errors
+    } | null;
+    // Remove parsedCards from final state type unless needed for UI feedback
+    // parsedCards?: { question: string; answer: string }[] | null;
+    // Add count of created cards on success
+    createdCount?: number | null;
 };
 
 // --- Schemas for Input Validation ---
@@ -41,7 +47,8 @@ const FlashcardUpdateSchema = z.object({
 });
 
 const GenerateInputSchema = z.object({
-    inputText: z.string().min(50, "Need >= 50 chars.").max(15000, "Text too long."),
+    inputText: z.string().min(50, "Need >= 50 chars.").max(25000, "Text too long."),
+    deckId: z.string().cuid("Invalid Deck ID selected"), // Ensure it's a valid ID format
 });
 
 // --- Action Return Type ---
@@ -260,6 +267,29 @@ export async function deleteDeckAction(deckId: string): ActionResponse {
 }
 
 
+type SimpleDeck = { id: string; name: string; };
+
+// Action to fetch decks for the current user
+export async function fetchUserDecksAction(): Promise<{ status: 'success' | 'error', decks?: SimpleDeck[], message?: string }> {
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) {
+        return { status: 'error', message: 'Unauthorized.' };
+    }
+
+    try {
+        const decks = await prisma.deck.findMany({
+            where: { userId: currentUserId },
+            orderBy: { name: 'asc' }, // Order alphabetically for dropdown
+            select: { id: true, name: true } // Only fetch ID and name
+        });
+        return { status: 'success', decks: decks };
+    } catch (error) {
+        console.error("Fetch User Decks Action Error:", error);
+        return { status: 'error', message: 'Database error fetching decks.' };
+    }
+}
+
+
 console.log("--- DEBUG: USING HARDCODED API KEY ---");
 const openai = new OpenAI({ 
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY as string, 
@@ -376,44 +406,89 @@ export async function generateFlashcardsFromTextAction(
 ): Promise<AiActionResponse> {
 
     console.log("generateFlashcardsFromTextAction called.");
-    const initialState: AiActionResponse = { status: 'idle', message: null, errors: null, parsedCards: null };
+    // Use correct initial state shape matching AiActionResponse
+    const initialState: AiActionResponse = { status: 'idle', message: null, errors: null, createdCount: null };
 
-    // 1. Authentication (Keep)
+    // 1. Authentication
     const currentUserId = await getCurrentUserId();
-    if (!currentUserId) return { ...initialState, status: 'error', message: 'Unauthorized.' };
+    if (!currentUserId) {
+        return { ...initialState, status: 'error', message: 'Unauthorized.' };
+    }
 
-    // 2. Validation (Keep)
-    const validatedFields = GenerateInputSchema.safeParse({ inputText: formData.get('inputText') });
-    if (!validatedFields.success) return { ...initialState, status: 'error', message: 'Invalid input text.', errors: validatedFields.error.flatten().fieldErrors };
-    const { inputText } = validatedFields.data;
+    // 2. Validation (Includes deckId again)
+    const validatedFields = GenerateInputSchema.safeParse({
+        inputText: formData.get('inputText'),
+        deckId: formData.get('deckId'), // Validate deckId from form
+    });
 
-    // 3. Initialize OpenAI Client (Keep)
-    if (!process.env.NEXT_PUBLIC_OPENAI_API_KEY) return { ...initialState, status: 'error', message: 'Server config error: OpenAI key missing.' };
+    if (!validatedFields.success) {
+        console.error("AI Action Validation Errors:", validatedFields.error.flatten().fieldErrors);
+        return { ...initialState, status: 'error', message: 'Invalid input.', errors: validatedFields.error.flatten().fieldErrors };
+    }
+    // Destructure both fields
+    const { inputText, deckId } = validatedFields.data;
+    console.log(`AI Action: User ${currentUserId} authenticated. Validated input for deck ${deckId}.`);
 
-    // 5. Call OpenAI API and Parse (wrapped in try/catch)
+
+    // 3. Verify Deck Ownership
     try {
-        // Step 5a: Get completion
-        const aiResponseContent = await getOpenAICompletion(inputText); // Assume this returns raw string or null
-         if (aiResponseContent === null) {
-            throw new Error("Received null content from OpenAI completion.");
+        const deck = await prisma.deck.findFirst({ where: { id: deckId, userId: currentUserId }});
+        if (!deck) {
+            return { ...initialState, status: 'error', message: 'Target deck not found or access denied.' };
         }
+        console.log(`AI Action: Deck ${deckId} ownership verified.`);
+    } catch (dbError) {
+         console.error("AI Action: Database error checking deck ownership:", dbError);
+         return { ...initialState, status: 'error', message: 'Database error verifying deck.' };
+    }
 
-        // Step 5b: Parse completion using the updated parseFlashcards function
-        const generatedCards = parseFlashcards(aiResponseContent); // Pass raw response here
 
-        // --- Database Saving Step (REMOVED FOR NOW) ---
+    // 4. Call OpenAI and Parse (wrapped in try/catch)
+    try {
+        // Step 4a: Get completion
+        const aiResponseContent = await getOpenAICompletion(inputText);
+        if (aiResponseContent === null) throw new Error("Received null content from OpenAI.");
 
-        // Return success state (FOR LOGGING/TESTING)
+        // Step 4b: Parse completion
+        const generatedCards = parseFlashcards(aiResponseContent);
+        if (generatedCards.length === 0) {
+             return { ...initialState, status: 'success', message: 'AI processed the text, but no flashcards could be generated.' };
+        }
+        console.log(`AI Action: Parsed ${generatedCards.length} cards.`);
+
+        // --- Step 5: Save Generated Flashcards to Database ---
+        console.log(`AI Action: Attempting to save ${generatedCards.length} cards to deck ${deckId}...`);
+        const flashcardsToCreate = generatedCards.map(card => ({
+            question: card.question,
+            answer: card.answer,
+            deckId: deckId,          // Assign to the correct deck
+            userId: currentUserId,   // Assign ownership
+            // Set default SRS values explicitly if needed, though schema defaults might suffice
+            // easinessFactor: 2.5,
+            // interval: 0,
+            // repetitions: 0,
+            // nextReviewDate: new Date(),
+        }));
+
+        const result = await prisma.flashcard.createMany({
+             data: flashcardsToCreate,
+             skipDuplicates: true, // Avoid errors if AI generates identical cards
+        });
+        console.log(`AI Action: Saved ${result.count} flashcards to the database.`);
+        // --- End Database Saving ---
+
+        // Step 6: Revalidate path and return success
+        revalidatePath(`/deck/${deckId}`); // Revalidate the specific deck page
         return {
             status: 'success',
-            message: `TEST: Successfully parsed ${generatedCards.length} flashcards. See server logs.`,
-            parsedCards: generatedCards,
+            message: `Successfully generated and saved ${result.count} flashcards!`,
+            createdCount: result.count, // Return count
             errors: null
         };
 
-    } catch (error: unknown) { // Catch errors from getOpenAICompletion or parseFlashcards
-        console.error("Error in AI generation/parsing flow:", error);
-        const message = error instanceof Error ? error.message : "Unknown error during AI processing.";
+    } catch (error: unknown) { // Catch errors from OpenAI call, parsing, or DB save
+        console.error("Error in AI generation/parsing/saving flow:", error);
+        const message = error instanceof Error ? error.message : "Unknown error during AI processing or saving.";
         return { ...initialState, status: 'error', message: `Error: ${message}` };
     }
 }
