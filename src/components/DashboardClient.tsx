@@ -3,12 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import DeckList from "@/components/DeckList";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import FormComponent from './formcomponent';
-import { PlusCircle, FileUp } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 
 interface Deck {
   id: string;
@@ -56,16 +55,6 @@ export default function DashboardClient({ initialDecks }: DashboardClientProps) 
              </p>
           </div>
 
-
-          <div className="flex items-center gap-2">
-             <Button asChild variant="secondary" size="sm">
-                <Link href="/pdf-uploader">
-                   <FileUp className="mr-2 h-4 w-4" />
-                   Upload PDF
-                </Link>
-             </Button>
-
-          </div>
        </div>
 
       <div className="text-left">

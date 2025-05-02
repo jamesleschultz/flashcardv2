@@ -75,14 +75,41 @@ export default function FlashcardListClient({ initialFlashcards, deckId }: Flash
             <h2 className="text-2xl font-bold mb-4">Flashcards</h2>
             {flashcards.length === 0 ? ( <p className="text-muted-foreground text-center pt-4 pb-4 border rounded-md"> No flashcards yet. </p> )
              : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {flashcards.map((flashcard) => (
-                        <Card key={flashcard.id} className="flex flex-col justify-between h-full bg-card"> {/* Added bg-card */}
-                           <div>
-                                <CardHeader> <CardTitle className="text-lg font-semibold">Question:</CardTitle> <CardDescription className="text-base pt-1 break-words text-card-foreground">{flashcard.question}</CardDescription> </CardHeader> {/* Added text-card-foreground */}
-                                <CardContent> <h4 className="text-md font-semibold mb-1">Answer:</h4> <p className="text-muted-foreground break-words">{flashcard.answer}</p> </CardContent>
+                        <Card
+                        key={flashcard.id}
+                        // Set desired fixed height (e.g., h-72 = 288px). Adjust as needed.
+                        className="flex flex-col justify-between h-72 bg-card shadow-sm border overflow-hidden"
+                        // Main card overflow-hidden is a fallback clip
+                    >
+                       {/* --- ADD OVERFLOW HIDDEN TO CONTENT WRAPPER --- */}
+                       {/* This div wraps the part that might grow */}
+                        <div className="flex-grow overflow-hidden"> {/* Allow grow, hide overflow */}
+                                <CardHeader className="pb-2 pt-4 px-4">
+                                    <CardTitle className="text-base font-semibold leading-tight">Question:</CardTitle>
+                                    {/* Removed line-clamp, keep overflow-hidden on parent */}
+                                    <CardDescription
+                                        className="text-sm pt-1 break-words text-card-foreground"
+                                        // title attribute still useful for hover
+                                        title={flashcard.question}
+                                    >
+                                        {flashcard.question}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="px-4 pb-3">
+                                    <h4 className="text-sm font-semibold mb-1">Answer:</h4>
+                                    {/* Removed line-clamp, keep overflow-hidden on parent */}
+                                    <p
+                                        className="text-sm text-muted-foreground break-words"
+                                        // title attribute still useful for hover
+                                        title={flashcard.answer}
+                                    >
+                                        {flashcard.answer}
+                                    </p>
+                                </CardContent>
                             </div>
-                            <CardFooter className="pt-4 border-t mt-auto flex justify-end gap-2">
+                            <CardFooter className="pt-4 border-t mt-auto flex justify-end gap-">
                                  {/* Disable buttons during delete operation */}
                                  <Button variant="outline" size="sm" onClick={() => handleEditClick(flashcard)} disabled={isPendingDelete}> <Pencil className="h-4 w-4" /> <span className="sr-only">Edit</span> </Button>
                                  <Button variant="destructive" size="sm" onClick={() => handleDeleteTrigger(flashcard)} disabled={isPendingDelete}> <Trash2 className="h-4 w-4" /> <span className="sr-only">Delete</span> </Button>

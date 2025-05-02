@@ -6,10 +6,9 @@ import { useState, useEffect, useTransition } from 'react';
 import { useFormState } from 'react-dom';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams} from 'next/navigation';
 import { ArrowLeft, Bot, AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
 // --- Import the Server Action and State Type ---
 import { generateFlashcardsFromTextAction, type AiActionResponse } from '@/lib/actions'; // Adjust path
 
@@ -24,6 +23,9 @@ export default function PdfUploaderPage() {
     const [aiState, formAction] = useFormState(generateFlashcardsFromTextAction, initialAiState);
     const [isPendingAi, startAiTransition] = useTransition();
     // --- End AI State ---
+
+    const searchParams = useSearchParams();
+    const deckIdFromQuery = searchParams.get('deckId'); // Get deckId from URL query
 
     // Callback function for PdfTextExtractorClient
     const handlePdfTextExtracted = (text: string) => {
@@ -64,6 +66,13 @@ export default function PdfUploaderPage() {
         }
     }, [aiState]);
 
+    const handleGoBack = () => {
+        if (deckIdFromQuery) {
+            router.push(`/deck/${deckIdFromQuery}`); // Go back to specific deck
+        } else {
+            router.push('/dashboard'); // Fallback to dashboard
+        }
+    };
 
     return (
         <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
@@ -75,9 +84,10 @@ export default function PdfUploaderPage() {
                         {/* Upload PDF -> Extract Text -> Call AI -> Log Result. */}
                     </p>
                 </div>
-                <Button onClick={() => router.push("/dashboard")} variant="outline" size="sm">
+                <Button onClick={handleGoBack} variant="outline" size="sm">
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Dashboard
+                    {/* Change text based on whether we know the deck */}
+                    {deckIdFromQuery ? 'Back to Deck' : 'Back to Dashboard'}
                 </Button>
             </div>
 

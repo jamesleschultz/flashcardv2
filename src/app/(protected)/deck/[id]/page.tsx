@@ -8,7 +8,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from 'next/link';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/authOptions'; // Adjust path if needed
-
+import {  FileUp } from "lucide-react";
 import FlashcardListClient from './FlashcardListClient'; // Ensure correct path
 import DeckActionButtons from './DeckActionButtons';   // Ensure correct path
 
@@ -85,23 +85,38 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
     // 5. Render Page
     return (
         <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
+            {/* --- CORRECTED Header Section --- */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-b pb-4">
+            {/* Use justify-between to push groups apart, items-center to vertically align */}
+
+                {/* Left Group: Title and ID */}
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Deck: {deck.name}</h1>
-                    <p className="text-md text-muted-foreground mt-1">
-                        ID: <span className="font-mono text-xs bg-muted px-1 rounded">{deck.id}</span>
-                    </p>
+  
                 </div>
-                <Button asChild variant="outline" size="sm">
-                    <Link href="/dashboard">
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+
+
+                <div className="flex items-center flex-shrink-0 gap-2"> 
+
+                <Button asChild variant="secondary" size="sm">
+                    {/* Pass deckId as a query parameter */}
+                    <Link href={`/pdf-uploader?deckId=${encodeURIComponent(deck.id)}`} className="flex items-center">
+                    <FileUp className="mr-2 h-4 w-4" /> Upload PDF
                     </Link>
                 </Button>
+
+
+
+                    <Button asChild variant="outline" size="sm">
+                        <Link href="/dashboard">
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                        </Link>
+                    </Button>
+
+                </div>
+
             </div>
 
-            {/* Action Buttons */}
-            {/* Pass deck.id (which is guaranteed to exist if we got here) */}
             <DeckActionButtons deckId={deck.id} />
 
             {/* Flashcard List */}

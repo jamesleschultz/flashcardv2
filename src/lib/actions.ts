@@ -388,7 +388,7 @@ export async function generateFlashcardsFromTextAction(
     const { inputText } = validatedFields.data;
 
     // 3. Initialize OpenAI Client (Keep)
-    if (!process.env.OPENAI_API_KEY) return { ...initialState, status: 'error', message: 'Server config error: OpenAI key missing.' };
+    if (!process.env.NEXT_PUBLIC_OPENAI_API_KEY) return { ...initialState, status: 'error', message: 'Server config error: OpenAI key missing.' };
 
     // 5. Call OpenAI API and Parse (wrapped in try/catch)
     try {
